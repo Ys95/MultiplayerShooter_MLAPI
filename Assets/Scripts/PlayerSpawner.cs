@@ -11,7 +11,7 @@ public class PlayerSpawner : NetworkBehaviour
     CharacterController cc;
     Renderer[] renderers;
 
-    void Start()
+    void Awake()
     {
         cc = GetComponent<CharacterController>();
         renderers = GetComponentsInChildren<Renderer>();

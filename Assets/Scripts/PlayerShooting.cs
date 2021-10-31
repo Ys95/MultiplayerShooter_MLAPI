@@ -4,29 +4,16 @@ using UnityEngine;
 
 public class PlayerShooting : NetworkBehaviour
 {
-    [SerializeField] LineRenderer bulletLine;
-    [SerializeField] Transform gunBarell;
-    [SerializeField] float timeBetweenBullets = 0.25f;
-    [SerializeField] float range = 100f;
-
-    float timer;
-    int shootableMask;
-    float effectsDisplayTime = 0.9f;
-
-    void Awake()
-    {
-        shootableMask = LayerMask.GetMask("Shootable");
-        Cursor.visible = false;
-    }
+    [SerializeField] TrailRenderer bulletTrail;
+    [SerializeField] Transform GunBarrel;
+    [SerializeField] Transform BulletSpawn;
 
     void Update()
     {
         if (IsLocalPlayer)
         {
-            timer += Time.deltaTime;
-            if (Input.GetButtonDown("Fire1") && timer >= timeBetweenBullets)
+            if (Input.GetButtonDown("Fire1"))
             {
-                timer = 0f;
                 ShootServerRpc();
             }
         }
@@ -35,65 +22,30 @@ public class PlayerShooting : NetworkBehaviour
     [ServerRpc]
     void ShootServerRpc()
     {
-        if (Physics.Raycast(gunBarell.position, gunBarell.forward, out RaycastHit hit, 200f, shootableMask))
+        if (Physics.Raycast(BulletSpawn.position, BulletSpawn.forward, out RaycastHit hit, 200f))
         {
             var enemyHealth = hit.transform.GetComponent<ICanTakeDamage>();
             if (enemyHealth != null)
             {
                 enemyHealth.TakeDamage(10);
             }
-
-            var rb = hit.transform.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.AddForceAtPosition(gunBarell.forward.normalized, hit.point, ForceMode.Impulse);
-            }
-
-            ShootHitClientRpc(hit.point);
         }
-        else
-        {
-            ShootMissClientRpc();
-        }
+        ShootClientRpc();
     }
 
     [ClientRpc]
     void ShootClientRpc()
     {
-        bulletLine.enabled = true;
-        bulletLine.SetPosition(0, gunBarell.position);
-        if (Physics.Raycast(gunBarell.position, gunBarell.forward, out RaycastHit hit, 200f, shootableMask))
+        Debug.Log("Shoot");
+        var bullet = Instantiate(bulletTrail, GunBarrel.position, Quaternion.identity);
+        bullet.AddPosition(GunBarrel.position);
+        if (Physics.Raycast(BulletSpawn.position, BulletSpawn.forward, out RaycastHit hit, 200f))
         {
-            bulletLine.SetPosition(1, hit.point);
+            bullet.transform.position = hit.point;
         }
         else
         {
-            bulletLine.SetPosition(1, gunBarell.position + (gunBarell.forward * 200f));
+            bullet.transform.position = BulletSpawn.position + (BulletSpawn.forward * 200f);
         }
-        Invoke("DisableEffects", timeBetweenBullets * effectsDisplayTime);
-    }
-
-    [ClientRpc]
-    void ShootHitClientRpc(Vector3 hitPoint)
-    {
-        bulletLine.enabled = true;
-        bulletLine.SetPosition(0, gunBarell.position);
-        bulletLine.SetPosition(1, hitPoint);
-        Invoke("DisableEffects", timeBetweenBullets * effectsDisplayTime);
-    }
-
-    [ClientRpc]
-    void ShootMissClientRpc()
-    {
-        Debug.Log("Shoot");
-        bulletLine.enabled = true;
-        bulletLine.SetPosition(0, gunBarell.position);
-        bulletLine.SetPosition(1, gunBarell.position + (gunBarell.forward * 200f));
-        Invoke("DisableEffects", timeBetweenBullets * effectsDisplayTime);
-    }
-
-    void DisableEffects()
-    {
-        bulletLine.enabled = false;
     }
 }
